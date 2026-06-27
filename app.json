@@ -44,7 +44,8 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
-      "react-native-permissions"
+      "react-native-permissions",
+      "expo-background-task"
     ],
     "experiments": {
       "typedRoutes": true,
