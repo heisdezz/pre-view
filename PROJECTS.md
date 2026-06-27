@@ -53,7 +53,7 @@ bun run start          # metro / dev server
 bun run android        # dev client on Android
 bun run ios            # dev client on iOS
 bun run web            # web
-bunx tsc --noEmit      # typecheck
+bun run typecheck      # typecheck
 ```
 
 `expo-media-library` and `react-native-permissions` use JSI / native modules, so

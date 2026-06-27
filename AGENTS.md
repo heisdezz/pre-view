@@ -18,12 +18,12 @@ See [PROJECTS.md](PROJECTS.md) for the product overview and stack rationale.
 bun install                              # deps
 bun run start                            # metro
 bun run android | ios | web              # platforms (need a dev build, not Expo Go)
-bunx tsc --noEmit                        # typecheck  (run before finishing)
+bun run typecheck                        # typecheck  (run before finishing)
 bun run lint                             # expo lint
 bunx expo prebuild --platform android --clean   # regenerate native project
 ```
 
-There is no unit-test suite yet; verify with `tsc --noEmit` and `bun run lint`.
+There is no unit-test suite yet; verify with `bun run typecheck` and `bun run lint`.
 
 ## Conventions
 
@@ -50,7 +50,7 @@ build. When adding native modules:
 
 ## Before you finish
 
-- [ ] `bunx tsc --noEmit` passes.
+- [ ] `bun run typecheck` passes.
 - [ ] `bun run lint` is clean.
 - [ ] Any new dependency was added with `bunx expo install` (or `bun add` for non-Expo).
 - [ ] No edits to `/android` or `/ios`; native config went through `app.json`.

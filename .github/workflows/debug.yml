@@ -54,7 +54,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: typecheck
-        run: bunx tsc --noEmit
+        run: bun run typecheck
 
       - name: expo prebuild (android, clean)
         run: bunx expo prebuild --platform android --clean --no-install
