@@ -1,0 +1,74 @@
+name: debug build
+
+# Builds an unsigned debug Android APK from a clean Expo prebuild.
+# Runs on demand and on pushes to main so every change has a sideloadable artifact.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+concurrency:
+  group: debug-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-debug:
+    name: android debug apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: setup jdk 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: setup android sdk
+        uses: android-actions/setup-android@v3
+
+      - name: cache bun + gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-deps-${{ hashFiles('bun.lock', 'android/**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: install deps
+        run: bun install --frozen-lockfile
+
+      - name: typecheck
+        run: bunx tsc --noEmit
+
+      - name: expo prebuild (android, clean)
+        run: bunx expo prebuild --platform android --clean --no-install
+        env:
+          EXPO_NO_TELEMETRY: '1'
+
+      - name: assemble debug apk
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: upload apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-view-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
