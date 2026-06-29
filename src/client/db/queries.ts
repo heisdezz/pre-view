@@ -4,60 +4,72 @@ import type { GalleryAsset, GalleryMediaType } from '../media/types';
 import { getDb } from './client';
 
 export type AssetSort = 'newest' | 'oldest' | 'name';
-export type AssetGroupBy = 'none' | 'day' | 'month' | 'year';
+export type AssetGroupBy = 'day' | 'month' | 'name' | 'path';
 
 export type IndexedAsset = GalleryAsset & {
-  /** Null when groupBy is 'none'. Otherwise a sortable string like '2026-06'. */
-  groupKey: string | null;
+  /**
+   * The group this asset belongs to, as a sortable + displayable key. Shape
+   * depends on the active groupBy: '2026-06-28' (day), '2026-06' (month),
+   * 'A' (name), or a folder name like 'Camera' (path). Always non-empty —
+   * falls back to a sentinel ('unknown'/'#') when the source value is missing.
+   */
+  groupKey: string;
 };
 
+// Effective timestamp for date sorting/grouping. creation_time comes from
+// Android's DATE_TAKEN, which is EXIF-only and null for many files (screenshots,
+// downloads, lots of videos); modification_time (DATE_MODIFIED) is always set.
+// Both are stored in milliseconds. Falling back avoids "unknown date" sections
+// for everything without EXIF.
+const EFFECTIVE_TIME = 'COALESCE(creation_time, modification_time)';
+
 const SORT_CLAUSE: Record<AssetSort, string> = {
-  newest: 'creation_time DESC',
-  oldest: 'creation_time ASC',
+  newest: `${EFFECTIVE_TIME} DESC`,
+  oldest: `${EFFECTIVE_TIME} ASC`,
   name: 'filename COLLATE NOCASE ASC',
 };
 
-// Expressed in terms of unixepoch seconds; creation_time is stored in milliseconds.
-const GROUP_KEY_EXPR: Record<AssetGroupBy, string | null> = {
-  none: null,
-  day: "strftime('%Y-%m-%d', creation_time / 1000, 'unixepoch')",
-  month: "strftime('%Y-%m', creation_time / 1000, 'unixepoch')",
-  year: "strftime('%Y', creation_time / 1000, 'unixepoch')",
+type GroupConfig = {
+  // SQL expression producing the (non-null) group key.
+  keyExpr: string;
+  // Ordering of the groups themselves: dates newest-first, text alphabetical.
+  order: 'ASC' | 'DESC';
+};
+
+const GROUP_CONFIG: Record<AssetGroupBy, GroupConfig> = {
+  // EFFECTIVE_TIME is in ms, so / 1000 for SQLite's unixepoch-seconds functions.
+  day: { keyExpr: `COALESCE(strftime('%Y-%m-%d', ${EFFECTIVE_TIME} / 1000, 'unixepoch'), 'unknown')`, order: 'DESC' },
+  month: { keyExpr: `COALESCE(strftime('%Y-%m', ${EFFECTIVE_TIME} / 1000, 'unixepoch'), 'unknown')`, order: 'DESC' },
+  name: { keyExpr: "COALESCE(NULLIF(UPPER(SUBSTR(filename, 1, 1)), ''), '#')", order: 'ASC' },
+  path: { keyExpr: "COALESCE(NULLIF(folder, ''), 'unknown')", order: 'ASC' },
 };
 
 export type QueryIndexedAssetsOptions = {
   sort?: AssetSort;
   groupBy?: AssetGroupBy;
   mediaTypes?: GalleryMediaType[];
-  limit?: number;
-  offset?: number;
 };
 
 /**
- * Queries the local SQLite index for sorting/grouping that the device media
- * store doesn't support directly (e.g. sort by name, group by day/month/year).
- * Requires `syncMediaLibrary()` to have run at least once — see `sync.ts`.
+ * Queries the entire local SQLite index (no pagination — the full result set
+ * is returned and held in memory; LegendList virtualizes the rendering). Backs
+ * sorting/grouping the device media store can't do directly (sort by name,
+ * group by day/month/name/path). Requires `syncMediaLibrary()` to have run at
+ * least once — see `sync.ts`.
  */
 export function queryIndexedAssets(options: QueryIndexedAssetsOptions = {}): IndexedAsset[] {
-  const {
-    sort = 'newest',
-    groupBy = 'none',
-    mediaTypes = ['image', 'video'],
-    limit = 60,
-    offset = 0,
-  } = options;
+  const { sort = 'newest', groupBy = 'day', mediaTypes = ['image', 'video'] } = options;
 
   const db = getDb();
-  const groupKeyExpr = GROUP_KEY_EXPR[groupBy];
+  const group = GROUP_CONFIG[groupBy];
   const mediaTypePlaceholders = mediaTypes.map(() => '?').join(', ');
 
   const result = db.executeSync(
-    `SELECT *, ${groupKeyExpr ?? 'NULL'} AS group_key
+    `SELECT *, ${group.keyExpr} AS group_key
      FROM assets
      WHERE media_type IN (${mediaTypePlaceholders})
-     ORDER BY ${groupKeyExpr ? 'group_key DESC, ' : ''}${SORT_CLAUSE[sort]}
-     LIMIT ? OFFSET ?`,
-    [...mediaTypes, limit, offset]
+     ORDER BY group_key ${group.order}, ${SORT_CLAUSE[sort]}`,
+    [...mediaTypes]
   );
 
   return result.rows.map(rowToIndexedAsset);
@@ -75,6 +87,6 @@ function rowToIndexedAsset(row: Record<string, Scalar>): IndexedAsset {
     creationTime: row.creation_time === null ? null : Number(row.creation_time),
     modificationTime: row.modification_time === null ? null : Number(row.modification_time),
     isFavorite: Boolean(row.is_favorite),
-    groupKey: row.group_key === null || row.group_key === undefined ? null : String(row.group_key),
+    groupKey: String(row.group_key),
   };
 }

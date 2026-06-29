@@ -25,20 +25,20 @@ every route has access.
 throws `MediaPermissionDeniedError`) — the screen uses this to show a denial
 message rather than a generic error.
 
-## `src/hooks/use-gallery-assets.ts`
+## Asset query hooks
 
-`useInfiniteQuery` wrapping `loadAssets()`:
+There are two, both gated by an `enabled` flag (the gallery screen passes
+`isGranted` so the query won't run before permission is confirmed):
 
-- `queryKey: ['gallery-assets', options]` — `options` is whatever filter the
-  caller passes (album, mediaTypes), excluding `offset`/`limit` which are
-  paging concerns, not identity.
-- `pageParam` is an `offset` (starts at 0); `getNextPageParam` returns
-  `allPages.length * PAGE_SIZE` while `lastPage.hasMore` is true, else
-  `undefined` (which is how react-query knows pagination ended).
-- `PAGE_SIZE = 60`, matching the media engine's default.
-- Takes an `enabled` flag (second argument) — the gallery screen passes
-  `isGranted` from the permission hook here, so the query doesn't even attempt
-  to run until permission is confirmed.
+- `src/hooks/use-gallery-assets.ts` — `useInfiniteQuery` wrapping the live
+  `loadAssets()` media engine (paginated, `PAGE_SIZE = 60`, `pageParam` is an
+  offset, `getNextPageParam` keyed off `lastPage.hasMore`). **Not currently
+  used by the gallery screen** — it's the direct-from-media-library path, kept
+  for screens that want live data without the SQLite index.
+- `src/hooks/use-indexed-assets.ts` — plain `useQuery` (no pagination) wrapping
+  `queryIndexedAssets()`, returning the full `IndexedAsset[]` in one shot. This
+  is what the gallery screen actually uses, because it needs the index's
+  sort/group-by capabilities. See `docs/sqlite-index.md`.
 
 ## How the gallery screen composes these
 
@@ -47,12 +47,10 @@ message rather than a generic error.
 1. `useMediaPermission()` first. While `isChecking`, show a loading message.
 2. If `!isGranted`, show an explanation + a "Grant access" button wired to
    `request()`; show a denial message if `requestError` is set.
-3. Only once `isGranted` is true does `useGalleryAssets({}, isGranted)` start
-   fetching.
-4. `galleryQuery.data?.pages.flatMap((page) => page.assets)` flattens the
-   paginated result into the flat array `MediaGrid` expects.
-5. `MediaGrid`'s `onEndReached` calls `fetchNextPage()`, guarded by
-   `hasNextPage && !isFetchingNextPage`.
+3. Holds `sort`/`group` state; only once `isGranted` is true does
+   `useIndexedAssets({ sort, groupBy: group }, isGranted)` run.
+4. `galleryQuery.data ?? []` is the full asset list — no page flattening, no
+   `onEndReached`; the entire set goes to `MediaGrid`, which virtualizes it.
 
 This keeps the screen itself thin — all loading/paging/permission state comes
 from the two hooks; the screen just branches on their status flags.

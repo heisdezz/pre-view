@@ -3,6 +3,7 @@ export const SCHEMA_STATEMENTS = [
     id TEXT PRIMARY KEY,
     uri TEXT NOT NULL,
     filename TEXT NOT NULL,
+    folder TEXT NOT NULL DEFAULT '',
     media_type TEXT NOT NULL,
     width INTEGER NOT NULL,
     height INTEGER NOT NULL,
@@ -14,6 +15,7 @@ export const SCHEMA_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_assets_creation_time ON assets(creation_time DESC);`,
   `CREATE INDEX IF NOT EXISTS idx_assets_media_type ON assets(media_type);`,
   `CREATE INDEX IF NOT EXISTS idx_assets_filename ON assets(filename COLLATE NOCASE);`,
+  `CREATE INDEX IF NOT EXISTS idx_assets_folder ON assets(folder COLLATE NOCASE);`,
   `CREATE TABLE IF NOT EXISTS sync_meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL

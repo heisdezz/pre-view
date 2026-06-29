@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Button, Text } from 'react-native';
 
 import type { AssetGroupBy, AssetSort } from '@/client/db';
@@ -11,15 +11,9 @@ import { useMediaPermission } from '@/hooks/use-media-permission';
 export default function GalleryScreen() {
   const { isGranted, isChecking, request, isRequesting, requestError } = useMediaPermission();
   const [sort, setSort] = useState<AssetSort>('newest');
-  const [group, setGroup] = useState<AssetGroupBy>('none');
+  const [group, setGroup] = useState<AssetGroupBy>('day');
 
   const galleryQuery = useIndexedAssets({ sort, groupBy: group }, isGranted);
-
-  const loadMore = useCallback(() => {
-    if (galleryQuery.hasNextPage && !galleryQuery.isFetchingNextPage) {
-      galleryQuery.fetchNextPage();
-    }
-  }, [galleryQuery]);
 
   if (isChecking) {
     return (
@@ -47,12 +41,12 @@ export default function GalleryScreen() {
     );
   }
 
-  const assets = galleryQuery.data?.pages.flat() ?? [];
+  const assets = galleryQuery.data ?? [];
 
   return (
     <PageWrap>
       <PageHeader title="Gallery" sort={sort} onSortChange={setSort} group={group} onGroupChange={setGroup} />
-      <MediaGrid assets={assets} onEndReached={loadMore} />
+      <MediaGrid assets={assets} groupBy={group} />
     </PageWrap>
   );
 }

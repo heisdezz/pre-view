@@ -1,20 +1,17 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import { queryIndexedAssets } from '@/client/db';
 import type { QueryIndexedAssetsOptions } from '@/client/db';
 
-const PAGE_SIZE = 60;
-
-export function useIndexedAssets(
-  options: Omit<QueryIndexedAssetsOptions, 'offset' | 'limit'> = {},
-  enabled = true
-) {
-  return useInfiniteQuery({
+/**
+ * Loads the full indexed asset list in one shot (no pagination) — the whole
+ * set is held in memory and LegendList virtualizes rendering, so there's no
+ * "load more on scroll to end". See `queryIndexedAssets`.
+ */
+export function useIndexedAssets(options: QueryIndexedAssetsOptions = {}, enabled = true) {
+  return useQuery({
     queryKey: ['indexed-assets', options],
-    queryFn: ({ pageParam }) => queryIndexedAssets({ ...options, offset: pageParam, limit: PAGE_SIZE }),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) =>
-      lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined,
+    queryFn: () => queryIndexedAssets(options),
     enabled,
   });
 }

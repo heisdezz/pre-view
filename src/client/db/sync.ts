@@ -8,6 +8,25 @@ import { getDb } from './client';
 const SYNC_PAGE_SIZE = 200;
 const LAST_SYNC_KEY = 'last_modification_time';
 
+// Derives the containing folder name from an asset URI for path grouping —
+// e.g. 'file:///storage/emulated/0/DCIM/Camera/IMG.jpg' -> 'Camera'. Returns
+// '' for content:// URIs or paths without a parent dir (callers treat '' as
+// "unknown" at query time).
+function folderFromUri(uri: string): string {
+  if (!uri.startsWith('file://')) return '';
+  const path = uri.slice('file://'.length);
+  const lastSlash = path.lastIndexOf('/');
+  if (lastSlash <= 0) return '';
+  const dir = path.slice(0, lastSlash);
+  const parentSlash = dir.lastIndexOf('/');
+  const name = parentSlash >= 0 ? dir.slice(parentSlash + 1) : dir;
+  try {
+    return decodeURIComponent(name);
+  } catch {
+    return name;
+  }
+}
+
 function getLastSyncTime(): number {
   const db = getDb();
   const result = db.executeSync('SELECT value FROM sync_meta WHERE key = ?', [LAST_SYNC_KEY]);
@@ -27,11 +46,12 @@ function setLastSyncTime(value: number): void {
 function upsertAsset(asset: GalleryAsset): void {
   const db = getDb();
   db.executeSync(
-    `INSERT INTO assets (id, uri, filename, media_type, width, height, duration, creation_time, modification_time, is_favorite)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO assets (id, uri, filename, folder, media_type, width, height, duration, creation_time, modification_time, is_favorite)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        uri = excluded.uri,
        filename = excluded.filename,
+       folder = excluded.folder,
        media_type = excluded.media_type,
        width = excluded.width,
        height = excluded.height,
@@ -43,6 +63,7 @@ function upsertAsset(asset: GalleryAsset): void {
       asset.id,
       asset.uri,
       asset.filename,
+      folderFromUri(asset.uri),
       asset.mediaType,
       asset.width,
       asset.height,

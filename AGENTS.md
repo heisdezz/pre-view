@@ -17,10 +17,12 @@ obvious from the code alone (e.g. why `Host` can't be nested, why
   the permission-status hook, the infinite-query gallery hook, and how the
   gallery screen composes them.
 - [`docs/components.md`](docs/components.md) — `JText`, `PageWrap`,
-  `PageHeader`, `MediaCard`, `MediaGrid`, the Compose `Host` nesting gotcha,
-  and the thumbnail pipeline.
+  `PageHeader`, `MediaCard`/`MediaGrid`/`ViewCard`, `MediaDetailsSheet`, the
+  Compose `Host` nesting gotcha, the `tw` (twrnc) styling convention for
+  non-Compose components, and the thumbnail pipeline.
 - [`docs/routing.md`](docs/routing.md) — the `(main)`/`(app)` route group
-  structure (Drawer → NativeTabs), which screens are implemented vs. stubs.
+  structure (Drawer → NativeTabs), which screens are implemented vs. stubs,
+  and the `view/[id]` modal viewer route.
 - [`docs/sqlite-index.md`](docs/sqlite-index.md) — the `op-sqlite` local index
   (`src/client/db/`): schema, incremental sync, and the sort/group-by queries
   that back `PageHeader`'s filters.
@@ -73,7 +75,7 @@ All native and require a dev build (none work in Expo Go):
 `expo-media-library`, `react-native-permissions`, `@op-engineering/op-sqlite`,
 `react-native-fs`, `react-native-compressor` (+ its peer dep
 `react-native-nitro-modules`), `expo-background-task`, `expo-task-manager`,
-`expo-notifications`.
+`expo-notifications`, `expo-video`.
 
 When adding native modules:
 
